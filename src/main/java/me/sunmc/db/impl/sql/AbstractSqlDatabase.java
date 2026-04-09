@@ -2,16 +2,20 @@ package me.sunmc.db.impl.sql;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import me.sunmc.db.api.*;
+import me.sunmc.db.api.AsyncDatabase;
+import me.sunmc.db.api.TransactionCallback;
+import me.sunmc.db.api.TransactionContext;
 import me.sunmc.db.api.result.QueryResult;
 import me.sunmc.db.api.result.UpdateResult;
 import me.sunmc.db.config.PoolConfig;
-import me.sunmc.db.util.SunDBLogger;
 import me.sunmc.db.util.VirtualExecutor;
 import org.jetbrains.annotations.NotNull;
 
 import java.sql.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 abstract class AbstractSqlDatabase implements AsyncDatabase {
@@ -24,13 +28,19 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
     }
 
     protected abstract String jdbcUrl();
+
     protected abstract String driverClass();
+
     protected abstract String username();
+
     protected abstract String password();
+
     protected abstract PoolConfig pool();
 
     @Override
-    public String name() { return name; }
+    public String name() {
+        return name;
+    }
 
     @Override
     public CompletableFuture<Void> connectAsync() {

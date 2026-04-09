@@ -8,6 +8,10 @@ public final class SunDBPlugin extends JavaPlugin {
 
     private static SunDBPlugin instance;
 
+    public static SunDBPlugin get() {
+        return instance;
+    }
+
     @Override
     public void onEnable() {
         instance = this;
@@ -19,9 +23,5 @@ public final class SunDBPlugin extends JavaPlugin {
     public void onDisable() {
         SunDB.shutdown();
         SunDBLogger.info("SunDB shut down.");
-    }
-
-    public static SunDBPlugin get() {
-        return instance;
     }
 }

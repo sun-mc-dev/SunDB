@@ -1,7 +1,6 @@
 package me.sunmc.db.api;
 
 import me.sunmc.db.config.*;
-import me.sunmc.db.config.type.*;
 import me.sunmc.db.impl.mango.MongoDatabase;
 import me.sunmc.db.impl.redis.RedisDatabase;
 import me.sunmc.db.impl.sql.*;

@@ -6,6 +6,9 @@ public final class SunDBLogger {
 
     private static final Logger LOG = Logger.getLogger("SunDB");
 
+    private SunDBLogger() {
+    }
+
     public static void info(String msg) {
         LOG.info(msg);
     }
@@ -16,8 +19,5 @@ public final class SunDBLogger {
 
     public static void error(String msg) {
         LOG.severe(msg);
-    }
-
-    private SunDBLogger() {
     }
 }

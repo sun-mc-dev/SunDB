@@ -1,8 +1,8 @@
 package me.sunmc.db.impl.sql;
 
 import me.sunmc.db.api.DatabaseType;
-import me.sunmc.db.config.type.MySQLConfig;
 import me.sunmc.db.config.PoolConfig;
+import me.sunmc.db.config.MySQLConfig;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 

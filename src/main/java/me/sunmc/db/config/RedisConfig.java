@@ -1,6 +1,5 @@
-package me.sunmc.db.config.type;
+package me.sunmc.db.config;
 
-import me.sunmc.db.config.DatabaseConfig;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 

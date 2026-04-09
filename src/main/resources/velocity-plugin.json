@@ -1,0 +1,10 @@
+{
+  "id": "sundb",
+  "name": "SunDB",
+  "version": "${project.version}",
+  "main": "me.sunmc.db.SunDBVelocityPlugin",
+  "authors": [
+    "sun-dev"
+  ],
+  "description": "Lightweight async database library for Paper/Folia/Velocity."
+}

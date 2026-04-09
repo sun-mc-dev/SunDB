@@ -13,7 +13,7 @@ import me.sunmc.db.api.TransactionCallback;
 import me.sunmc.db.api.TransactionContext;
 import me.sunmc.db.api.result.QueryResult;
 import me.sunmc.db.api.result.UpdateResult;
-import me.sunmc.db.config.type.RedisConfig;
+import me.sunmc.db.config.RedisConfig;
 import me.sunmc.db.util.VirtualExecutor;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
@@ -132,8 +132,8 @@ public final class RedisDatabase implements AsyncDatabase {
                 }
 
                 if (params.length >= 4 && "HSET".equalsIgnoreCase(params[1].toString())) {
-                    long set = cmd.hset(params[0].toString(), params[2].toString(), params[3].toString());
-                    return UpdateResult.of(set);
+                    cmd.hset(params[0].toString(), params[2].toString(), params[3].toString());
+                    return UpdateResult.of(1);
                 }
 
                 // SET key value [EX seconds]

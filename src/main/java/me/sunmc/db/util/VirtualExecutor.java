@@ -12,10 +12,10 @@ public final class VirtualExecutor {
     private static final Executor INSTANCE =
             Executors.newVirtualThreadPerTaskExecutor();
 
-    public static Executor get() {
-        return INSTANCE;
+    private VirtualExecutor() {
     }
 
-    private VirtualExecutor() {
+    public static Executor get() {
+        return INSTANCE;
     }
 }

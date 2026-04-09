@@ -9,7 +9,7 @@ import me.sunmc.db.api.TransactionCallback;
 import me.sunmc.db.api.TransactionContext;
 import me.sunmc.db.api.result.QueryResult;
 import me.sunmc.db.api.result.UpdateResult;
-import me.sunmc.db.config.type.MongoConfig;
+import me.sunmc.db.config.MongoConfig;
 import me.sunmc.db.util.VirtualExecutor;
 import org.bson.Document;
 import org.jetbrains.annotations.Contract;
