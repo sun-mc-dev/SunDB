@@ -115,7 +115,7 @@ public class MyDatabaseHandler {
 To compile the project yourself, clone the repository and build using Maven:
 
 ```bash
-git clone [https://github.com/sun-mc-dev/SunDB.git](https://github.com/sun-mc-dev/SunDB.git)
+git clone https://github.com/sun-mc-dev/SunDB.git
 cd SunDB
 mvn clean package
 ```
