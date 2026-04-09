@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/sundb.iml" filepath="$PROJECT_DIR$/sundb.iml" />
+      <module fileurl="file://$PROJECT_DIR$/SunDB.iml" filepath="$PROJECT_DIR$/SunDB.iml" />
     </modules>
   </component>
 </project>
