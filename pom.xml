@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>me.sunmc</groupId>
-    <artifactId>sundb</artifactId>
+    <artifactId>SunDB</artifactId>
     <version>0.1-alpha</version>
     <packaging>jar</packaging>
 
@@ -56,7 +56,7 @@
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>
             <artifactId>mariadb-java-client</artifactId>
-            <version>3.5.8</version>
+            <version>3.5.7</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

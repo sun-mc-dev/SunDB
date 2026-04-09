@@ -2,6 +2,7 @@ name: SunDB
 version: '${project.version}'
 api-version: 1.21
 main: me.sunmc.db.SunDBPlugin
+folia-supported: true
 author: sun-dev
 description: Lightweight async database library for Paper/Folia/Velocity.
 load: STARTUP
@@ -11,7 +12,7 @@ libraries:
   - org.xerial:sqlite-jdbc:3.51.3.0
   - com.mysql:mysql-connector-j:9.6.0
   - io.lettuce:lettuce-core:7.5.0.RELEASE
-  - org.mariadb.jdbc:mariadb-java-client:3.5.8
+  - org.mariadb.jdbc:mariadb-java-client:3.5.7
   - org.postgresql:postgresql:42.7.10
   - com.h2database:h2:2.4.240
   - org.mongodb:mongodb-driver-sync:5.7.0-beta1
