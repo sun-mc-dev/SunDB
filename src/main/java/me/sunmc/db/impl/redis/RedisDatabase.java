@@ -6,11 +6,11 @@ import io.lettuce.core.RedisFuture;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
+import io.lettuce.core.pubsub.RedisPubSubAdapter;
+import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import io.lettuce.core.support.ConnectionPoolSupport;
-import me.sunmc.db.api.AsyncDatabase;
-import me.sunmc.db.api.DatabaseType;
-import me.sunmc.db.api.TransactionCallback;
-import me.sunmc.db.api.TransactionContext;
+import me.sunmc.db.api.*;
+import me.sunmc.db.api.pubsub.PubSubListener;
 import me.sunmc.db.api.result.QueryResult;
 import me.sunmc.db.api.result.UpdateResult;
 import me.sunmc.db.config.RedisConfig;
@@ -45,6 +45,7 @@ public final class RedisDatabase implements AsyncDatabase {
 
     private RedisClient lettuceClient;
     private GenericObjectPool<StatefulRedisConnection<String, String>> pool;
+    private StatefulRedisPubSubConnection<String, String> pubSubConnection;
 
     public RedisDatabase(String name, RedisConfig cfg) {
         this.name = name;
@@ -54,6 +55,18 @@ public final class RedisDatabase implements AsyncDatabase {
     @Override
     public String name() {
         return name;
+    }
+
+    @Override
+    public @NotNull DatabaseMetrics metrics() {
+        if (pool == null) return DatabaseMetrics.unavailable();
+
+        return new DatabaseMetrics(
+                pool.getNumActive(),
+                pool.getNumIdle(),
+                pool.getNumActive() + pool.getNumIdle(),
+                pool.getNumWaiters()
+        );
     }
 
     @Override
@@ -91,6 +104,9 @@ public final class RedisDatabase implements AsyncDatabase {
     @Override
     public @NotNull CompletableFuture<Void> disconnectAsync() {
         return CompletableFuture.runAsync(() -> {
+            if (pubSubConnection != null && pubSubConnection.isOpen()) {
+                pubSubConnection.close();
+            }
             if (pool != null) pool.close();
             if (lettuceClient != null) lettuceClient.shutdown();
         }, VirtualExecutor.get());
@@ -197,6 +213,69 @@ public final class RedisDatabase implements AsyncDatabase {
     @Override
     public boolean isConnected() {
         return pool != null && !pool.isClosed();
+    }
+
+    /**
+     * Subscribe to a Redis channel. Messages are delivered to the listener
+     * on a virtual thread.
+     */
+    public void subscribe(@NotNull String channel, @NotNull PubSubListener listener) {
+        ensurePubSubConnection();
+        pubSubConnection.addListener(new RedisPubSubAdapter<>() {
+            @Override
+            public void message(String ch, String message) {
+                if (ch.equals(channel)) {
+                    CompletableFuture.runAsync(
+                            () -> listener.onMessage(ch, message),
+                            VirtualExecutor.get()
+                    );
+                }
+            }
+        });
+        pubSubConnection.sync().subscribe(channel);
+    }
+
+    /**
+     * Subscribe to a Redis channel pattern (e.g. "chat.*").
+     */
+    public void psubscribe(@NotNull String pattern, @NotNull PubSubListener listener) {
+        ensurePubSubConnection();
+        pubSubConnection.addListener(new RedisPubSubAdapter<>() {
+            @Override
+            public void message(String pattern1, String channel, String message) {
+                CompletableFuture.runAsync(
+                        () -> listener.onMessage(channel, message),
+                        VirtualExecutor.get()
+                );
+            }
+        });
+        pubSubConnection.sync().psubscribe(pattern);
+    }
+
+    /**
+     * Publish a message to a Redis channel.
+     */
+    public void publish(@NotNull String channel, @NotNull String message) {
+        try (var conn = pool.borrowObject()) {
+            conn.sync().publish(channel, message);
+        } catch (Exception e) {
+            throw new RuntimeException("Redis publish failed", e);
+        }
+    }
+
+    /**
+     * Unsubscribe from a channel.
+     */
+    public void unsubscribe(@NotNull String channel) {
+        if (pubSubConnection != null && pubSubConnection.isOpen()) {
+            pubSubConnection.sync().unsubscribe(channel);
+        }
+    }
+
+    private synchronized void ensurePubSubConnection() {
+        if (pubSubConnection == null || !pubSubConnection.isOpen()) {
+            pubSubConnection = lettuceClient.connectPubSub();
+        }
     }
 
     private record RedisTransactionContext(RedisCommands<String, String> cmd) implements TransactionContext {

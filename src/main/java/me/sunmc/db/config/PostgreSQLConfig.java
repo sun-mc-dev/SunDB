@@ -2,6 +2,9 @@ package me.sunmc.db.config;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Unmodifiable;
+
+import java.util.List;
 
 public record PostgreSQLConfig(
         String host, int port, String database,
@@ -18,5 +21,14 @@ public record PostgreSQLConfig(
     public @NotNull String jdbcUrl() {
         return "jdbc:postgresql://" + host + ":" + port + "/" + database
                 + "?reWriteBatchedInserts=true";
+    }
+
+    @Contract(" -> new")
+    @Override
+    public @NotNull @Unmodifiable List<MavenLibrary> requiredLibraries() {
+        return List.of(
+                new MavenLibrary("com.zaxxer", "HikariCP", "7.0.2"),
+                new MavenLibrary("org.postgresql", "postgresql", "42.7.10")
+        );
     }
 }

@@ -2,7 +2,9 @@ package me.sunmc.db.impl.sql;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.HikariPoolMXBean;
 import me.sunmc.db.api.AsyncDatabase;
+import me.sunmc.db.api.DatabaseMetrics;
 import me.sunmc.db.api.TransactionCallback;
 import me.sunmc.db.api.TransactionContext;
 import me.sunmc.db.api.result.QueryResult;
@@ -27,6 +29,22 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
         this.name = name;
     }
 
+    /**
+     * Shared ResultSet → QueryResult mapper. Uses {@link LinkedHashMap#newLinkedHashMap(int)}
+     * to pre-size correctly (accounts for load factor, avoids rehashing).
+     */
+    static @NotNull List<QueryResult> mapResultSet(@NotNull ResultSet rs) throws SQLException {
+        ResultSetMetaData meta = rs.getMetaData();
+        int cols = meta.getColumnCount();
+        List<QueryResult> rows = new ArrayList<>();
+        while (rs.next()) {
+            Map<String, Object> row = LinkedHashMap.newLinkedHashMap(cols);
+            for (int i = 1; i <= cols; i++) row.put(meta.getColumnLabel(i), rs.getObject(i));
+            rows.add(new QueryResult(row));
+        }
+        return rows;
+    }
+
     protected abstract String jdbcUrl();
 
     protected abstract String driverClass();
@@ -43,34 +61,52 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
     }
 
     @Override
+    public @NotNull DatabaseMetrics metrics() {
+        HikariDataSource ds = this.dataSource;
+        if (ds == null || ds.isClosed()) return DatabaseMetrics.unavailable();
+
+        HikariPoolMXBean mxBean = ds.getHikariPoolMXBean();
+        if (mxBean == null) return DatabaseMetrics.unavailable();
+
+        return new DatabaseMetrics(
+                mxBean.getActiveConnections(),
+                mxBean.getIdleConnections(),
+                mxBean.getTotalConnections(),
+                mxBean.getThreadsAwaitingConnection()
+        );
+    }
+
+    @Override
     public CompletableFuture<Void> connectAsync() {
         return CompletableFuture.runAsync(() -> {
-            if (dataSource != null && !dataSource.isClosed()) return;
+            synchronized (this) {
+                if (dataSource != null && !dataSource.isClosed()) return;
 
-            var cfg = new HikariConfig();
-            cfg.setJdbcUrl(jdbcUrl());
-            cfg.setDriverClassName(driverClass());
+                var cfg = new HikariConfig();
+                cfg.setJdbcUrl(jdbcUrl());
+                cfg.setDriverClassName(driverClass());
 
-            String u = username(), p = password();
-            if (u != null) cfg.setUsername(u);
-            if (p != null) cfg.setPassword(p);
+                String u = username(), p = password();
+                if (u != null) cfg.setUsername(u);
+                if (p != null) cfg.setPassword(p);
 
-            PoolConfig pc = pool();
-            cfg.setMaximumPoolSize(pc.maximumPoolSize());
-            cfg.setMinimumIdle(pc.minimumIdle());
-            cfg.setConnectionTimeout(pc.connectionTimeoutMs());
-            cfg.setIdleTimeout(pc.idleTimeoutMs());
-            cfg.setMaxLifetime(pc.maxLifetimeMs());
-            cfg.setKeepaliveTime(pc.keepAliveTimeMs());
-            cfg.setPoolName("SunDB-" + name);
+                PoolConfig pc = pool();
+                cfg.setMaximumPoolSize(pc.maximumPoolSize());
+                cfg.setMinimumIdle(pc.minimumIdle());
+                cfg.setConnectionTimeout(pc.connectionTimeoutMs());
+                cfg.setIdleTimeout(pc.idleTimeoutMs());
+                cfg.setMaxLifetime(pc.maxLifetimeMs());
+                cfg.setKeepaliveTime(pc.keepAliveTimeMs());
+                cfg.setPoolName("SunDB-" + name);
 
-            // Performance tweaks
-            cfg.addDataSourceProperty("cachePrepStmts", "true");
-            cfg.addDataSourceProperty("prepStmtCacheSize", "250");
-            cfg.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-            cfg.addDataSourceProperty("useServerPrepStmts", "true");
+                // Performance tweaks
+                cfg.addDataSourceProperty("cachePrepStmts", "true");
+                cfg.addDataSourceProperty("prepStmtCacheSize", "250");
+                cfg.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+                cfg.addDataSourceProperty("useServerPrepStmts", "true");
 
-            dataSource = new HikariDataSource(cfg);
+                dataSource = new HikariDataSource(cfg);
+            }
         }, VirtualExecutor.get());
     }
 
@@ -128,16 +164,24 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
                  PreparedStatement ps = conn.prepareStatement(sql)) {
 
                 conn.setAutoCommit(false);
-                for (Object[] row : batches) {
-                    for (int i = 0; i < row.length; i++) ps.setObject(i + 1, row[i]);
-                    ps.addBatch();
+                try {
+                    for (Object[] row : batches) {
+                        for (int i = 0; i < row.length; i++) ps.setObject(i + 1, row[i]);
+                        ps.addBatch();
+                    }
+                    int[] result = ps.executeBatch();
+                    conn.commit();
+                    return result;
+                } catch (SQLException ex) {
+                    conn.rollback();
+                    throw new RuntimeException("Batch failed (rolled back): " + sql, ex);
+                } finally {
+                    conn.setAutoCommit(true);
                 }
-                int[] result = ps.executeBatch();
-                conn.commit();
-                conn.setAutoCommit(true);
-                return result;
+            } catch (RuntimeException ex) {
+                throw ex;
             } catch (SQLException ex) {
-                throw new RuntimeException("Batch failed: " + sql, ex);
+                throw new RuntimeException("Batch connection error: " + sql, ex);
             }
         }, VirtualExecutor.get());
     }
@@ -168,19 +212,8 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
         return dataSource != null && !dataSource.isClosed();
     }
 
-    private @NotNull List<QueryResult> mapResultSet(@NotNull ResultSet rs) throws SQLException {
-        ResultSetMetaData meta = rs.getMetaData();
-        int cols = meta.getColumnCount();
-        List<QueryResult> rows = new ArrayList<>();
-        while (rs.next()) {
-            Map<String, Object> row = new LinkedHashMap<>(cols);
-            for (int i = 1; i <= cols; i++) row.put(meta.getColumnLabel(i), rs.getObject(i));
-            rows.add(new QueryResult(row));
-        }
-        return rows;
-    }
-
-    // Inner context — conn is already open, stay synchronous
+    // Inner context — conn is already open, stay synchronous.
+    // Reuses the static mapResultSet() to avoid duplicated logic.
     private record SqlTransactionContext(Connection conn) implements TransactionContext {
 
         @Override
@@ -188,21 +221,13 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 for (int i = 0; i < params.length; i++) ps.setObject(i + 1, params[i]);
                 try (ResultSet rs = ps.executeQuery()) {
-                    ResultSetMetaData meta = rs.getMetaData();
-                    int cols = meta.getColumnCount();
-                    List<QueryResult> rows = new ArrayList<>();
-                    while (rs.next()) {
-                        Map<String, Object> row = new LinkedHashMap<>(cols);
-                        for (int i = 1; i <= cols; i++) row.put(meta.getColumnLabel(i), rs.getObject(i));
-                        rows.add(new QueryResult(row));
-                    }
-                    return rows;
+                    return mapResultSet(rs);
                 }
             }
         }
 
         @Override
-        public @NotNull UpdateResult update(String sql, Object... params) throws Exception {
+        public @NotNull UpdateResult update(String sql, Object @NotNull ... params) throws Exception {
             try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 for (int i = 0; i < params.length; i++) ps.setObject(i + 1, params[i]);
                 int affected = ps.executeUpdate();

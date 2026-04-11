@@ -2,6 +2,9 @@ package me.sunmc.db.config;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Unmodifiable;
+
+import java.util.List;
 
 public record MySQLConfig(
         String host, int port, String database,
@@ -19,5 +22,14 @@ public record MySQLConfig(
         return "jdbc:mysql://" + host + ":" + port + "/" + database
                 + "?useSSL=false&autoReconnect=true&characterEncoding=UTF-8"
                 + "&serverTimezone=UTC&rewriteBatchedStatements=true";
+    }
+
+    @Contract(" -> new")
+    @Override
+    public @NotNull @Unmodifiable List<MavenLibrary> requiredLibraries() {
+        return List.of(
+                new MavenLibrary("com.zaxxer", "HikariCP", "7.0.2"),
+                new MavenLibrary("com.mysql", "mysql-connector-j", "9.6.0")
+        );
     }
 }

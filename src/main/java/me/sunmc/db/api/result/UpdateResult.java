@@ -21,4 +21,11 @@ public record UpdateResult(long affectedRows, Object generatedKey) {
     public boolean succeeded() {
         return affectedRows > 0;
     }
+
+    /**
+     * Alias for {@link #succeeded()} — both names are supported.
+     */
+    public boolean isSuccess() {
+        return succeeded();
+    }
 }

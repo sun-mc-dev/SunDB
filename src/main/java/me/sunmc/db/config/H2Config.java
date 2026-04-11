@@ -2,8 +2,10 @@ package me.sunmc.db.config;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Unmodifiable;
 
 import java.nio.file.Path;
+import java.util.List;
 
 public record H2Config(Path filePath, boolean inMemory) implements DatabaseConfig {
 
@@ -22,5 +24,14 @@ public record H2Config(Path filePath, boolean inMemory) implements DatabaseConfi
         return inMemory
                 ? "jdbc:h2:mem:sundb;DB_CLOSE_DELAY=-1;MODE=MySQL"
                 : "jdbc:h2:file:" + filePath.toAbsolutePath() + ";MODE=MySQL";
+    }
+
+    @Contract(" -> new")
+    @Override
+    public @NotNull @Unmodifiable List<MavenLibrary> requiredLibraries() {
+        return List.of(
+                new MavenLibrary("com.zaxxer", "HikariCP", "7.0.2"),
+                new MavenLibrary("com.h2database", "h2", "2.4.240")
+        );
     }
 }

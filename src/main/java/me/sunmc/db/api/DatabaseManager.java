@@ -6,8 +6,12 @@ import me.sunmc.db.impl.redis.RedisDatabase;
 import me.sunmc.db.impl.sql.*;
 import me.sunmc.db.platform.PlatformAdapter;
 import me.sunmc.db.util.SunDBLogger;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.UnmodifiableView;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class DatabaseManager {
@@ -23,6 +27,8 @@ public final class DatabaseManager {
         if (registry.containsKey(name))
             throw new IllegalArgumentException("Database already registered: " + name);
 
+        platform.loadLibraries(config.requiredLibraries());
+
         AsyncDatabase db = build(name, config);
         db.connectAsync().exceptionally(ex -> {
             SunDBLogger.warn("Failed to connect database '" + name + "': " + ex.getMessage());
@@ -37,6 +43,15 @@ public final class DatabaseManager {
         return db;
     }
 
+    /**
+     * Get the first (or only) registered database.
+     * Convenience for single-database setups.
+     */
+    public @NotNull AsyncDatabase getDefault() {
+        if (registry.isEmpty()) throw new IllegalStateException("No databases registered.");
+        return registry.values().iterator().next();
+    }
+
     public void unregister(String name) {
         AsyncDatabase db = registry.remove(name);
         if (db != null) db.disconnectAsync();
@@ -45,6 +60,11 @@ public final class DatabaseManager {
     public void shutdownAll() {
         registry.forEach((name, db) -> db.disconnectAsync().join());
         registry.clear();
+    }
+
+    @Contract(pure = true)
+    public @NotNull @UnmodifiableView Map<String, AsyncDatabase> getRegistered() {
+        return Collections.unmodifiableMap(registry);
     }
 
     private AsyncDatabase build(String name, @NotNull DatabaseConfig cfg) {

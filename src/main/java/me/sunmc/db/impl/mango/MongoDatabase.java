@@ -3,10 +3,7 @@ package me.sunmc.db.impl.mango;
 import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
-import me.sunmc.db.api.AsyncDatabase;
-import me.sunmc.db.api.DatabaseType;
-import me.sunmc.db.api.TransactionCallback;
-import me.sunmc.db.api.TransactionContext;
+import me.sunmc.db.api.*;
 import me.sunmc.db.api.result.QueryResult;
 import me.sunmc.db.api.result.UpdateResult;
 import me.sunmc.db.config.MongoConfig;
@@ -41,6 +38,11 @@ public final class MongoDatabase implements AsyncDatabase {
     @Override
     public String name() {
         return name;
+    }
+
+    @Override
+    public @NotNull DatabaseMetrics metrics() {
+        return DatabaseMetrics.unavailable(); // MongoClient obscures internal pool stats
     }
 
     @Override

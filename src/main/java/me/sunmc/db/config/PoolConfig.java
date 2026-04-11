@@ -23,4 +23,14 @@ public record PoolConfig(
     public static @NotNull PoolConfig light() {
         return new PoolConfig(4, 1, 3000, 300_000, 900_000, 30_000);
     }
+
+    /**
+     * Single-connection pool for SQLite. SQLite only supports one writer —
+     * multiple connections just block on the file-level write lock.
+     */
+    @Contract(" -> new")
+    public static @NotNull PoolConfig sqlite() {
+        return new PoolConfig(1, 1, 5000, 0, 0, 0);
+    }
 }
+

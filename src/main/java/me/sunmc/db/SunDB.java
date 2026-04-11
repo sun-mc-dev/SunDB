@@ -33,6 +33,15 @@ public final class SunDB {
         return manager.get(name);
     }
 
+    /**
+     * Get the default (first registered) database.
+     * Convenience for plugins that only use a single database.
+     */
+    public static @NotNull AsyncDatabase getDatabase() {
+        ensureReady();
+        return manager.getDefault();
+    }
+
     public static void unregister(String name) {
         ensureReady();
         manager.unregister(name);
@@ -40,6 +49,11 @@ public final class SunDB {
 
     static void shutdown() {
         if (manager != null) manager.shutdownAll();
+    }
+
+    public static @NotNull DatabaseManager getManager() {
+        ensureReady();
+        return manager;
     }
 
     private static void ensureReady() {

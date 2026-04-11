@@ -2,6 +2,9 @@ package me.sunmc.db.config;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Unmodifiable;
+
+import java.util.List;
 
 public record RedisConfig(
         String host, int port,
@@ -24,5 +27,14 @@ public record RedisConfig(
     @Contract(" -> new")
     public static @NotNull RedisConfig local() {
         return of("localhost", 6379);
+    }
+
+    @Contract(" -> new")
+    @Override
+    public @NotNull @Unmodifiable List<MavenLibrary> requiredLibraries() {
+        return List.of(
+                new MavenLibrary("io.lettuce", "lettuce-core", "7.5.0.RELEASE"),
+                new MavenLibrary("org.apache.commons", "commons-pool2", "2.13.1")
+        );
     }
 }

@@ -50,7 +50,6 @@ public final class VelocityLibraryLoader {
             }
         }
 
-        // Inject the jar into Velocity's runtime classpath so SunDB can use it
         try {
             server.getPluginManager().addToClasspath(pluginInstance, jarPath);
         } catch (Exception e) {

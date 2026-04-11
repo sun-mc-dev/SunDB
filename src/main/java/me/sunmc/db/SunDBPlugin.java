@@ -1,8 +1,12 @@
 package me.sunmc.db;
 
+import me.sunmc.db.command.BukkitStatusCommand;
+import me.sunmc.db.config.ConfigLoader;
 import me.sunmc.db.platform.PaperAdapter;
 import me.sunmc.db.util.SunDBLogger;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.Objects;
 
 public final class SunDBPlugin extends JavaPlugin {
 
@@ -16,7 +20,13 @@ public final class SunDBPlugin extends JavaPlugin {
     public void onEnable() {
         instance = this;
         SunDB.init(new PaperAdapter(this));
-        SunDBLogger.info("SunDB 0.1-alpha enabled.");
+        ConfigLoader.load(getDataFolder().toPath());
+
+        Objects.requireNonNull(getCommand("sundb"))
+                .setExecutor(new BukkitStatusCommand());
+
+        final String version = getPluginMeta().getVersion();
+        SunDBLogger.info("SunDB " + version + " enabled.");
     }
 
     @Override
