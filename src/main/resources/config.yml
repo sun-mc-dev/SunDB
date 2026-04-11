@@ -1,0 +1,52 @@
+# ==================================================================== #
+#                              SunDB                                   #
+#              Centralized Database Configuration Hub                  #
+# ==================================================================== #
+
+# Define your remote, shared databases here.
+# Plugins using SunDB can automatically connect to these without
+# needing you to copy/paste credentials into every plugin's config.
+databases:
+
+  # ------------------------------------------------------------------ #
+  # The "main" database. Most plugins will default to requesting this.
+  # Supported types: MYSQL, MARIADB, POSTGRESQL
+  # ------------------------------------------------------------------ #
+  main:
+    type: MYSQL
+    host: 127.0.0.1
+    port: 3306
+    database: minecraft
+    username: root
+    password: password
+    pool:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  # ------------------------------------------------------------------ #
+  # The "cache" database. Generally used for faster in-memory storage,
+  # cross-server synchronization, or Pub/Sub messaging.
+  # Supported types: REDIS
+  # ------------------------------------------------------------------ #
+  #  cache:
+  #    type: REDIS
+  #    host: 127.0.0.1
+  #    port: 6379
+  #    password: ""
+  #    pool:
+  #      maximum-pool-size: 8
+  #      minimum-idle: 1
+  #      connection-timeout: 5000
+
+  # ------------------------------------------------------------------ #
+  # Example MongoDB setup
+  # Supported types: MONGODB
+  # ------------------------------------------------------------------ #
+#  mongo_main:
+#    type: MONGODB
+#    host: 127.0.0.1
+#    port: 27017
+#    database: minecraft
+#    username: ""
+#    password: ""
