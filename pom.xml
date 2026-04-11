@@ -7,7 +7,7 @@
 
     <groupId>me.sunmc</groupId>
     <artifactId>SunDB</artifactId>
-    <version>0.2-alpha</version>
+    <version>0.2-alpha.1</version>
     <packaging>jar</packaging>
 
     <properties>
