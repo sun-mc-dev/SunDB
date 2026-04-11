@@ -1,6 +1,6 @@
 package me.sunmc.db;
 
-import me.sunmc.db.command.BukkitStatusCommand;
+import me.sunmc.db.command.PaperCommand;
 import me.sunmc.db.config.ConfigLoader;
 import me.sunmc.db.platform.PaperAdapter;
 import me.sunmc.db.util.SunDBLogger;
@@ -23,7 +23,7 @@ public final class SunDBPlugin extends JavaPlugin {
         ConfigLoader.load(getDataFolder().toPath());
 
         Objects.requireNonNull(getCommand("sundb"))
-                .setExecutor(new BukkitStatusCommand());
+                .setExecutor(new PaperCommand(this));
 
         final String version = getPluginMeta().getVersion();
         SunDBLogger.info("SunDB " + version + " enabled.");

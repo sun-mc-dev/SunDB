@@ -78,4 +78,15 @@ public final class DatabaseManager {
             case RedisConfig c -> new RedisDatabase(name, c);
         };
     }
+
+    public void reloadAll() {
+        registry.forEach((name, db) -> {
+            try {
+                db.disconnectAsync().join();
+            } catch (Exception e) {
+                SunDBLogger.warn("Error disconnecting '" + name + "' during reload: " + e.getMessage());
+            }
+        });
+        registry.clear();
+    }
 }

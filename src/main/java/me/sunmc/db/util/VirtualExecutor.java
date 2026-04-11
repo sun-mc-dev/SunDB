@@ -1,21 +1,23 @@
 package me.sunmc.db.util;
 
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 /**
- * Java 21 virtual-thread executor — each DB task gets its own lightweight thread.
- * IO blocking is transparent; the carrier thread is never pinned.
+ * @deprecated Use {@link PriorityExecutor} directly.
+ * This class is kept for backward compatibility and delegates to
+ * {@link PriorityExecutor#get(PriorityExecutor.Priority) NORMAL} priority.
  */
+@Deprecated(since = "0.2-alpha", forRemoval = true)
 public final class VirtualExecutor {
-
-    private static final Executor INSTANCE =
-            Executors.newVirtualThreadPerTaskExecutor();
 
     private VirtualExecutor() {
     }
 
+    /**
+     * @deprecated Use {@link PriorityExecutor#get()}
+     */
+    @Deprecated
     public static Executor get() {
-        return INSTANCE;
+        return PriorityExecutor.get(PriorityExecutor.Priority.NORMAL);
     }
 }

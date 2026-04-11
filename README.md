@@ -79,9 +79,20 @@ dependencies {
 SunDB operates as a standalone plugin on your server/proxy. To use it in your own plugins, make sure you add `SunDB` as a `depend` or `softdepend` in your `plugin.yml` or `velocity-plugin.json`.
 
 ### 1. Configure the Database
-When you start the server for the first time with SunDB installed, it will generate a `config.yml`. Select your database type and enter your credentials.
+When you start the server for the first time with SunDB installed, it will generate a `config.yml` inside `plugins/SunDB/`. Select your database type and enter your credentials.
 
-### 2. API Quick Start
+### 2. Admin Commands
+
+SunDB registers a `/sundb` command on both Paper/Folia and Velocity. Requires the `sundb.admin` permission.
+
+| Command         | Description                                                                                                                                          |
+|-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/sundb status` | Live connection pool metrics for every registered database.                                                                                          |
+| `/sundb reload` | Closes and re-opens all databases defined in `config.yml` without a server restart. Useful after editing credentials or adding a new database entry. |
+
+> Databases registered programmatically by individual plugins (e.g. private SQLite files) are not affected by `/sundb reload` — they manage their own lifecycle.
+
+### 3. API Quick Start
 
 Interact with your database using the built-in result wrappers:
 
@@ -102,10 +113,10 @@ public class MyDatabaseHandler {
 
     public void savePlayer(String uuid, String name) {
         String sql = "INSERT INTO players (uuid, name) VALUES (?, ?) ON DUPLICATE KEY UPDATE name = ?";
-        
+
         // Blocking call — safe on virtual threads
         UpdateResult result = database.update(sql, uuid, name, name);
-        
+
         if (result.isSuccess()) {
             System.out.println("Saved " + name + " to database.");
         }
@@ -114,7 +125,7 @@ public class MyDatabaseHandler {
     public void loadPlayer(String uuid) {
         // queryFirst returns a single row or null
         QueryResult result = database.queryFirst("SELECT * FROM players WHERE uuid = ?", uuid);
-        
+
         if (result != null) {
             String name = result.getString("name");
             double balance = result.getDouble("balance", 0.0);
@@ -122,15 +133,15 @@ public class MyDatabaseHandler {
             System.out.println("Loaded player: " + name);
         }
     }
-    
+
     public void loadPlayerAsync(String uuid) {
         // Full async with CompletableFuture
         database.queryFirstAsync("SELECT * FROM players WHERE uuid = ?", uuid)
-            .thenAccept(result -> {
-                if (result != null) {
-                    System.out.println("Loaded: " + result.getString("name"));
-                }
-            });
+                .thenAccept(result -> {
+                    if (result != null) {
+                        System.out.println("Loaded: " + result.getString("name"));
+                    }
+                });
     }
 }
 ```

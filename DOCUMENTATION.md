@@ -360,16 +360,34 @@ if (rawDb.type() == DatabaseType.REDIS) {
 
 SunDB hooks directly into internal `HikariCP` and `Apache Commons Pool` states to expose live telemetry for enterprise networks.
 
-### In-Game Command
-At any time, an admin with the `sundb.admin` permission can view real-time pool metrics natively on Paper or Velocity:
-```text
-/sundb status
-```
+### In-Game Commands
+
+SunDB registers a `/sundb` command on both Paper and Velocity. Any sender with the `sundb.admin` permission can run the following subcommands:
+
+| Command         | Description                                                                                                                                                                                                              |
+|-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/sundb status` | Displays real-time connection pool metrics for every registered database (active connections, idle connections, waiting threads, online/offline status).                                                                 |
+| `/sundb reload` | Gracefully closes all database connections defined in `config.yml`, clears the registry, and re-applies the config file. Useful after changing credentials or adding a new database entry without restarting the server. |
+
+> **Important:** `/sundb reload` only restores databases defined in `config.yml`. Databases registered programmatically by individual plugins (e.g. a plugin's private SQLite file via `SunDB.register()`) are **not** affected — those plugins manage their own connection lifecycle via `onEnable` / `onDisable`.
 
 ### Developer API
-You can fetch these metrics yourself to push to your own Promtheus endpoints or debug lag:
+
+You can fetch live connection metrics yourself to push to your own Prometheus endpoints or debug lag:
+
 ```java
 DatabaseMetrics metrics = db.metrics();
-System.out.println("Active queries: " + metrics.activeConnections());
-System.out.println("Waiting threads: " + metrics.threadsAwaitingConnection());
+System.out.println("Active queries:   " + metrics.activeConnections());
+System.out.println("Idle connections: " + metrics.idleConnections());
+System.out.println("Waiting threads:  " + metrics.threadsAwaitingConnection());
+```
+
+You can also trigger a reload programmatically — for example, from your own plugin's admin command:
+
+```java
+// Reloads using the last known data folder (set automatically on first load)
+SunDB.reload();
+
+// Or pass an explicit path if calling before SunDB has stored one
+SunDB.reload(getDataFolder().toPath());
 ```

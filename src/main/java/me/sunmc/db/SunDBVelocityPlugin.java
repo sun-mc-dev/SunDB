@@ -6,7 +6,7 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
-import me.sunmc.db.command.VelocityStatusCommand;
+import me.sunmc.db.command.VelocityCommand;
 import me.sunmc.db.config.ConfigLoader;
 import me.sunmc.db.platform.VelocityAdapter;
 import me.sunmc.db.util.SunDBLogger;
@@ -35,7 +35,7 @@ public final class SunDBVelocityPlugin {
 
             server.getCommandManager().register(
                     server.getCommandManager().metaBuilder("sundb").aliases("db").build(),
-                    new VelocityStatusCommand()
+                    new VelocityCommand(dataDirectory)
             );
 
             SunDBLogger.info("SunDB successfully enabled on Velocity.");

@@ -7,6 +7,9 @@ import me.sunmc.db.api.query.DeleteBuilder;
 import me.sunmc.db.api.query.InsertBuilder;
 import me.sunmc.db.api.query.SelectBuilder;
 import me.sunmc.db.api.query.UpdateQueryBuilder;
+import me.sunmc.db.api.readwrite.ReadWriteDatabase;
+import me.sunmc.db.api.resilience.ResilientConfig;
+import me.sunmc.db.api.resilience.ResilientDatabase;
 import me.sunmc.db.api.result.QueryResult;
 import me.sunmc.db.api.result.UpdateResult;
 import me.sunmc.db.api.store.PlayerStore;
@@ -15,6 +18,7 @@ import me.sunmc.db.impl.MultiPlayerStore;
 import me.sunmc.db.impl.mango.MongoPlayerStore;
 import me.sunmc.db.impl.redis.RedisPlayerStore;
 import me.sunmc.db.impl.sql.SqlPlayerStore;
+import me.sunmc.db.util.PriorityExecutor;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -243,6 +247,84 @@ public interface AsyncDatabase {
     default DeleteBuilder deleteFrom(String table) {
         requireSql("deleteFrom()");
         return new DeleteBuilder(this, table);
+    }
+
+    /**
+     * Wrap this database as the primary writer with one or more read replicas.
+     * SELECT queries are distributed round-robin across replicas.
+     * All writes and transactions always go to this (primary) instance.
+     *
+     * <pre>{@code
+     * AsyncDatabase db = SunDB.get("main")
+     *     .withReadReplicas(SunDB.get("main_r1"), SunDB.get("main_r2"));
+     * }</pre>
+     */
+    default ReadWriteDatabase withReadReplicas(AsyncDatabase... replicas) {
+        return new ReadWriteDatabase(this, replicas);
+    }
+
+    /**
+     * Wrap this database with circuit breaking and backpressure.
+     * Strongly recommended for any network serving 5,000+ concurrent players.
+     *
+     * <pre>{@code
+     * AsyncDatabase db = SunDB.get("main")
+     *     .withResilience(ResilientConfig.forLargeNetwork());
+     * }</pre>
+     */
+    default ResilientDatabase withResilience(ResilientConfig config) {
+        return new ResilientDatabase(this, config);
+    }
+
+    /**
+     * Run a SELECT query on the CRITICAL executor — guaranteed not to queue
+     * behind background work. Use for player join/quit and punishment checks.
+     *
+     * <pre>{@code
+     * db.queryCriticalAsync("SELECT * FROM bans WHERE uuid = ?", uuid)
+     *   .thenAccept(rows -> { ... });
+     * }</pre>
+     */
+    default CompletableFuture<List<QueryResult>> queryCriticalAsync(String sql, Object... params) {
+        return CompletableFuture.supplyAsync(
+                () -> query(sql, params),
+                PriorityExecutor.get(PriorityExecutor.Priority.CRITICAL));
+    }
+
+    /**
+     * Run an UPDATE on the CRITICAL executor.
+     * Use for economy transfers and other latency-sensitive writes.
+     */
+    default CompletableFuture<UpdateResult> updateCriticalAsync(String sql, Object... params) {
+        return CompletableFuture.supplyAsync(
+                () -> update(sql, params),
+                PriorityExecutor.get(PriorityExecutor.Priority.CRITICAL));
+    }
+
+    /**
+     * Run a SELECT on the BACKGROUND executor — rate-limited to avoid starving
+     * critical operations. Use for leaderboard rebuilds, stats aggregation, etc.
+     *
+     * <pre>{@code
+     * // Safe to spam — bounded pool prevents it overwhelming critical work
+     * db.queryBackgroundAsync("SELECT name, kills FROM stats ORDER BY kills DESC LIMIT 100")
+     *   .thenAccept(rows -> { ... });
+     * }</pre>
+     */
+    default CompletableFuture<List<QueryResult>> queryBackgroundAsync(String sql, Object... params) {
+        return CompletableFuture.supplyAsync(
+                () -> query(sql, params),
+                PriorityExecutor.get(PriorityExecutor.Priority.BACKGROUND));
+    }
+
+    /**
+     * Run a batch insert on the BACKGROUND executor.
+     * Ideal for periodic data flushes that should not compete with active gameplay.
+     */
+    default CompletableFuture<int[]> batchBackgroundAsync(String sql, List<Object[]> batches) {
+        return CompletableFuture.supplyAsync(
+                () -> batch(sql, batches),
+                PriorityExecutor.get(PriorityExecutor.Priority.BACKGROUND));
     }
 
     /**

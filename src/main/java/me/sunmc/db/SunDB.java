@@ -2,9 +2,12 @@ package me.sunmc.db;
 
 import me.sunmc.db.api.AsyncDatabase;
 import me.sunmc.db.api.DatabaseManager;
+import me.sunmc.db.config.ConfigLoader;
 import me.sunmc.db.config.DatabaseConfig;
 import me.sunmc.db.platform.PlatformAdapter;
 import org.jetbrains.annotations.NotNull;
+
+import java.nio.file.Path;
 
 /**
  * Primary entry point. Register databases and obtain them by name.
@@ -18,6 +21,7 @@ import org.jetbrains.annotations.NotNull;
 public final class SunDB {
 
     private static DatabaseManager manager;
+    private static Path lastDataFolder;
 
     static void init(PlatformAdapter adapter) {
         manager = new DatabaseManager(adapter);
@@ -31,6 +35,26 @@ public final class SunDB {
     public static @NotNull AsyncDatabase get(String name) {
         ensureReady();
         return manager.get(name);
+    }
+
+
+    static void init(PlatformAdapter adapter, Path dataFolder) {
+        manager = new DatabaseManager(adapter);
+        lastDataFolder = dataFolder;
+    }
+
+    public static void reload(Path dataFolder) {
+        ensureReady();
+        lastDataFolder = dataFolder;
+        manager.reloadAll();
+        ConfigLoader.load(dataFolder);
+    }
+
+    /** Convenience overload — reuses the last known data folder. */
+    public static void reload() {
+        if (lastDataFolder == null)
+            throw new IllegalStateException("SunDB has no recorded data folder; call reload(Path) instead.");
+        reload(lastDataFolder);
     }
 
     /**
