@@ -7,7 +7,7 @@
 
     <groupId>me.sunmc</groupId>
     <artifactId>SunDB</artifactId>
-    <version>0.2-alpha.1</version>
+    <version>0.3-alpha</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -101,6 +101,30 @@
             <version>2.6</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.bstats</groupId>
+            <artifactId>bstats-bukkit</artifactId>
+            <version>3.2.1</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.bstats</groupId>
+            <artifactId>bstats-velocity</artifactId>
+            <version>3.2.1</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.dropwizard.metrics5</groupId>
+            <artifactId>metrics-core</artifactId>
+            <version>5.0.6</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.dropwizard.metrics5</groupId>
+            <artifactId>metrics-jmx</artifactId>
+            <version>5.0.6</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -123,6 +147,16 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.bstats</pattern>
+                                    <shadedPattern>me.sunmc.db.bstats</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.codahale.metrics</pattern>
+                                    <shadedPattern>me.sunmc.db.metrics</shadedPattern>
+                                </relocation>
+                            </relocations>
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>

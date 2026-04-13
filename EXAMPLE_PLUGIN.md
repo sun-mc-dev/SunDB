@@ -11,6 +11,7 @@ This document provides complete, copy-pasteable examples of how to build differe
 6. [Example 6: Secure Economy Transfers (Transactions)](#example-6-secure-economy-transfers-transactions)
 7. [Example 7: Complex Custom Queries (Fluent Builders)](#example-7-complex-custom-queries-fluent-builders)
 8. [Example 8: Production Upgrades (Migrations)](#example-8-production-upgrades-migrations)
+9. [Example 9: Relationship Mapping (OneToMany/ManyToOne)](#example-9-relationship-mapping-onetomanymanytoone)
 
 ---
 
@@ -445,6 +446,64 @@ public class EvolvingPlugin extends JavaPlugin {
             .execute();
             
         getLogger().info("Database schema is fully up to date!");
+    }
+}
+```
+
+---
+
+## Example 9: Relationship Mapping (OneToMany/ManyToOne)
+**Use Case:** Tracking complex data trees, like a `Clan` that has many `Member` objects, with automatic fetching and lazy loading.
+
+### 1. The Entities
+```java
+import me.sunmc.db.api.orm.*;
+import java.util.List;
+import java.util.UUID;
+
+@Table("clans")
+public class Clan {
+    @Id @Column("id") public int id;
+    @Column("name") public String name;
+
+    // A Clan has many members.
+    // This is LAZY LOADED: the database isn't queried until you call members.size()!
+    @OneToMany(mappedBy = "clan_id")
+    public List<ClanMember> members;
+}
+
+@Table("clan_members")
+public class ClanMember {
+    @Id @Column("uuid") public UUID uuid;
+    
+    // Automatically fetched using the 'clan_id' column in this table
+    @ManyToOne
+    public Clan clan;
+}
+```
+
+### 2. Loading and Saving
+```java
+public class ClanManager {
+    private final Repository<Clan> clanRepo;
+
+    public ClanManager(AsyncDatabase db) {
+        this.clanRepo = Repository.of(db, Clan.class);
+    }
+
+    public void printClanInfo(int clanId) {
+        clanRepo.findByIdAsync(clanId).thenAccept(opt -> {
+            opt.ifPresent(clan -> {
+                System.out.println("Clan: " + clan.name);
+                
+                // The database query for members executes ONLY at this line:
+                System.out.println("Members (" + clan.members.size() + "):");
+                
+                for (ClanMember member : clan.members) {
+                    System.out.println(" - " + member.uuid);
+                }
+            });
+        });
     }
 }
 ```

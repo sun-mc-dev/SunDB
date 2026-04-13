@@ -19,6 +19,12 @@ public final class SqlSanitizer {
     private static final Pattern VALID_IDENTIFIER = Pattern.compile(
             "^[`\"]?[a-zA-Z_][a-zA-Z0-9_.]*[`\"]?$"
     );
+    /**
+     * Validates that the given string is a safe SQL operator.
+     */
+    private static final java.util.Set<String> ALLOWED_OPERATORS = java.util.Set.of(
+            "=", "<", ">", "<=", ">=", "<>", "!=", "LIKE", "ILIKE", "IN", "IS", "IS NOT"
+    );
 
     private SqlSanitizer() {
     }
@@ -56,5 +62,13 @@ public final class SqlSanitizer {
      */
     public static @NotNull String column(@NotNull String name) {
         return validateIdentifier(name, "column name");
+    }
+
+    public static @NotNull String operator(@NotNull String op) {
+        String normalized = op.trim().toUpperCase();
+        if (!ALLOWED_OPERATORS.contains(normalized)) {
+            throw new IllegalArgumentException("Invalid or unsupported SQL operator: '" + op + "'");
+        }
+        return normalized;
     }
 }

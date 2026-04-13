@@ -9,6 +9,7 @@ import java.util.concurrent.Executors;
  * Tiered executors for database operations.
  * <p>
  * Why not one shared virtual thread executor?
+ * <p>
  * Virtual threads are scheduled onto a finite pool of OS "carrier" threads.
  * If hundreds of BACKGROUND operations (e.g. leaderboard queries doing 50ms DB
  * calls each) are submitted simultaneously, they can saturate the carrier pool
@@ -31,32 +32,8 @@ import java.util.concurrent.Executors;
  */
 public final class PriorityExecutor {
 
-    public enum Priority {
-        /**
-         * Player-facing operations that must complete with minimal latency.
-         * Examples: join/quit data load, economy transfers, punishment checks.
-         * Never queued — always gets a virtual thread immediately.
-         */
-        CRITICAL,
-
-        /**
-         * Standard plugin queries. The default for all SunDB internals.
-         * Uses virtual threads — effectively unlimited concurrency.
-         */
-        NORMAL,
-
-        /**
-         * Bulk or analytics operations that can tolerate delay.
-         * Examples: leaderboard rebuilds, cache warming, stats aggregation.
-         * Uses a bounded platform thread pool — naturally rate-limited so it
-         * cannot starve CRITICAL or NORMAL work during traffic spikes.
-         */
-        BACKGROUND
-    }
-
     private static final Executor CRITICAL = Executors.newVirtualThreadPerTaskExecutor();
     private static final Executor NORMAL = Executors.newVirtualThreadPerTaskExecutor();
-
     private static final Executor BACKGROUND = Executors.newFixedThreadPool(
             Math.max(2, Runtime.getRuntime().availableProcessors() / 2),
             Thread.ofPlatform().name("sundb-bg-", 0).daemon(true).factory()
@@ -79,5 +56,28 @@ public final class PriorityExecutor {
      */
     public static Executor get() {
         return NORMAL;
+    }
+
+    public enum Priority {
+        /**
+         * Player-facing operations that must complete with minimal latency.
+         * Examples: join/quit data load, economy transfers, punishment checks.
+         * Never queued — always gets a virtual thread immediately.
+         */
+        CRITICAL,
+
+        /**
+         * Standard plugin queries. The default for all SunDB internals.
+         * Uses virtual threads — effectively unlimited concurrency.
+         */
+        NORMAL,
+
+        /**
+         * Bulk or analytics operations that can tolerate delay.
+         * Examples: leaderboard rebuilds, cache warming, stats aggregation.
+         * Uses a bounded platform thread pool — naturally rate-limited, so it
+         * cannot starve CRITICAL or NORMAL work during traffic spikes.
+         */
+        BACKGROUND
     }
 }

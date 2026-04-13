@@ -55,6 +55,8 @@ databases:
     database: network_db
     username: root
     password: mypassword
+    # Optional: distribute SELECTs across replicas (round-robin)
+    readers: ["slave_node_1", "slave_node_2"]
 ```
 
 In your plugin, you just request the connection by name. You don't need to ask your users for database passwords again.
@@ -122,8 +124,17 @@ if (row != null) {
 ```java
 db.transaction(conn -> {
     conn.update("UPDATE economy SET bal = bal - 100 WHERE uuid = ?", sender);
+    
+    // Support for Savepoints (Nested Transactions)
+    Object sp = conn.setSavepoint();
+    try {
+        conn.update("UPDATE sub_table SET val = ? WHERE ...", val);
+    } catch (Exception e) {
+        conn.rollback(sp); // Only rolls back 'sub_table' update
+    }
+    
     conn.update("UPDATE economy SET bal = bal + 100 WHERE uuid = ?", target);
-    return true; // Commit
+    return true; // Commit remaining
 });
 ```
 
@@ -222,6 +233,41 @@ repo.save(myUser);
 // Performs a SELECT ... WHERE uuid = ? mapped safely back to your object
 User u = repo.findById(uuid).orElse(null);
 ```
+
+### Relationship Mapping
+SunDB supports complex entity associations via `@ManyToOne` and `@OneToMany`.
+
+```java
+@Table("posts")
+public class Post {
+    @Id @Column("id") public int id;
+    @Column("content") public String content;
+    
+    @ManyToOne 
+    public User author; // Automatically fetched by Author ID
+}
+
+@Table("users")
+public class User {
+    @Id @Column("uuid") public UUID id;
+    
+    @OneToMany(mappedBy = "author_id")
+    public List<Post> posts; // Lazy-loaded only when accessed!
+
+    @OneToOne(mappedBy = "user_id")
+    public UserProfile profile; // Single inverse relationship
+}
+```
+
+### Relationship Types
+
+*   **@ManyToOne**: The entity has a column `field_id` pointing to the related entity.
+*   **@OneToMany(mappedBy="...")**: A collection associated with multiple child entities (Lazy-loaded).
+*   **@OneToOne**: 
+    *   **Owning Side**: (No `mappedBy`) Table contains a `field_id` foreign key.
+    *   **Inverse Side**: (`mappedBy="owner_field"`) Queries the other table's foreign key to find the single matching row.
+
+**Lazy Loading:** Collections annotated with `@OneToMany` use `LazyList`. The database will not be queried for the collection until you actually call a method like `user.posts.size()` or iterate over it. This drastically improves performance for large entity graphs.
 
 ---
 
@@ -364,10 +410,12 @@ SunDB hooks directly into internal `HikariCP` and `Apache Commons Pool` states t
 
 SunDB registers a `/sundb` command on both Paper and Velocity. Any sender with the `sundb.admin` permission can run the following subcommands:
 
-| Command         | Description                                                                                                                                                                                                              |
-|-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `/sundb status` | Displays real-time connection pool metrics for every registered database (active connections, idle connections, waiting threads, online/offline status).                                                                 |
-| `/sundb reload` | Gracefully closes all database connections defined in `config.yml`, clears the registry, and re-applies the config file. Useful after changing credentials or adding a new database entry without restarting the server. |
+| Command             | Description                                                                                                                                                                           |
+|---------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/sundb status`     | Displays real-time connection pool metrics (active, idle, waiting).                                                                                                                   |
+| `/sundb top`        | Shows the most recent slow queries recorded by the Query Profiler. Threshold is configurable in `config.yml`.                                                                         |
+| `/sundb migrate-db` | Performs a cross-database export, copying tables and data from a source database to a target database.                                                                                |
+| `/sundb reload`     | Gracefully closes all database connections defined in `config.yml`, clears the registry, and re-applies the config file. Useful for credential changes without restarting the server. |
 
 > **Important:** `/sundb reload` only restores databases defined in `config.yml`. Databases registered programmatically by individual plugins (e.g. a plugin's private SQLite file via `SunDB.register()`) are **not** affected — those plugins manage their own connection lifecycle via `onEnable` / `onDisable`.
 

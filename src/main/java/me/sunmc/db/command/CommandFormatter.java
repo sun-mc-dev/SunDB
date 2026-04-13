@@ -1,5 +1,6 @@
 package me.sunmc.db.command;
 
+import me.sunmc.db.SunDB;
 import me.sunmc.db.api.AsyncDatabase;
 import me.sunmc.db.api.DatabaseManager;
 import me.sunmc.db.api.DatabaseMetrics;
@@ -42,6 +43,29 @@ public final class CommandFormatter {
             }
         }
         report.add("§b======================");
+        return report;
+    }
+
+    /**
+     * Generates a report of the most recent slow queries.
+     */
+    public static @NotNull List<String> buildTopReport() {
+        List<String> report = new ArrayList<>();
+        report.add("§c=== §lSlow Query Log (Last 100) §c===");
+
+        var logs = SunDB.getSlowQueryLog();
+        if (logs.isEmpty()) {
+            report.add("§7No slow queries recorded yet.");
+            return report;
+        }
+
+        int size = logs.size();
+        for (int i = Math.max(0, size - 10); i < size; i++) {
+            var info = logs.get(i);
+            report.add("§8[§f" + info.ms() + "ms§8] §7" + info.sql());
+        }
+
+        report.add("§c==============================");
         return report;
     }
 }

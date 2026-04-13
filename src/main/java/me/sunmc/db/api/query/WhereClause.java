@@ -1,5 +1,6 @@
 package me.sunmc.db.api.query;
 
+import me.sunmc.db.util.SqlSanitizer;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -26,7 +27,10 @@ public final class WhereClause {
             sql.append(" WHERE ");
             hasCondition = true;
         }
-        sql.append(column).append(' ').append(operator).append(" ?");
+        sql.append(SqlSanitizer.column(column))
+                .append(' ')
+                .append(SqlSanitizer.operator(operator))
+                .append(" ?");
         params.add(value);
         return this;
     }
@@ -48,7 +52,10 @@ public final class WhereClause {
             sql.append(" WHERE ");
             hasCondition = true;
         }
-        sql.append(column).append(' ').append(operator).append(" ?");
+        sql.append(SqlSanitizer.column(column))
+                .append(' ')
+                .append(SqlSanitizer.operator(operator))
+                .append(" ?");
         params.add(value);
         return this;
     }

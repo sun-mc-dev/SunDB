@@ -3,12 +3,15 @@ package me.sunmc.db.api.orm;
 import me.sunmc.db.api.AsyncDatabase;
 import me.sunmc.db.api.query.InsertBuilder;
 import me.sunmc.db.api.result.QueryResult;
+import me.sunmc.db.util.SqlSanitizer;
 import me.sunmc.db.util.ValueParser;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -30,11 +33,12 @@ import java.util.concurrent.CompletableFuture;
  */
 public final class Repository<T> {
 
+    private static final Map<Class<?>, Repository<?>> repoCache = new java.util.concurrent.ConcurrentHashMap<>();
     private final AsyncDatabase database;
     private final Class<T> entityType;
     private final String tableName;
-
     private final List<FieldMapping> columns = new ArrayList<>();
+    private final List<RelationshipMapping> relationships = new ArrayList<>();
     private FieldMapping idField;
 
     public Repository(@NotNull AsyncDatabase database, @NotNull Class<T> entityType) {
@@ -45,24 +49,44 @@ public final class Repository<T> {
         if (tableAnn == null) {
             throw new IllegalArgumentException("Class must be annotated with @Table");
         }
-        this.tableName = tableAnn.value();
+        this.tableName = SqlSanitizer.table(tableAnn.value());
 
         for (Field f : entityType.getDeclaredFields()) {
+            f.setAccessible(true);
             Column colAnn = f.getAnnotation(Column.class);
             if (colAnn != null) {
-                f.setAccessible(true);
-                FieldMapping mapping = new FieldMapping(f, colAnn.value());
+                FieldMapping mapping = new FieldMapping(f, SqlSanitizer.column(colAnn.value()));
                 columns.add(mapping);
 
                 if (f.isAnnotationPresent(Id.class)) {
                     this.idField = mapping;
                 }
+            } else if (f.isAnnotationPresent(ManyToOne.class)) {
+                relationships.add(new RelationshipMapping(f, RelationshipType.MANY_TO_ONE, null));
+            } else if (f.isAnnotationPresent(OneToMany.class)) {
+                OneToMany ann = f.getAnnotation(OneToMany.class);
+                relationships.add(new RelationshipMapping(f, RelationshipType.ONE_TO_MANY, ann.mappedBy()));
+            } else if (f.isAnnotationPresent(OneToOne.class)) {
+                OneToOne ann = f.getAnnotation(OneToOne.class);
+                relationships.add(new RelationshipMapping(f, RelationshipType.ONE_TO_ONE, ann.mappedBy()));
             }
         }
 
         if (this.idField == null) {
             throw new IllegalArgumentException("Class must have one field annotated with @Id");
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> Repository<T> of(@NotNull AsyncDatabase db, @NotNull Class<T> type) {
+        return (Repository<T>) repoCache.computeIfAbsent(type, t -> new Repository<>(db, t));
+    }
+
+    /**
+     * Purges the repository cache. Should be called during database reloads.
+     */
+    public static void clearCache() {
+        repoCache.clear();
     }
 
     /**
@@ -130,9 +154,67 @@ public final class Repository<T> {
                 m.field.set(instance, val);
             }
         }
+
+        // Handle Relationships
+        for (RelationshipMapping rel : relationships) {
+            if (rel.type == RelationshipType.MANY_TO_ONE) {
+                Object relId = row.raw().get(rel.field.getName() + "_id");
+                if (relId != null) {
+                    Repository<?> relRepo = Repository.of(database, rel.field.getType());
+                    rel.field.set(instance, relRepo.findById(relId).orElse(null));
+                }
+            } else if (rel.type == RelationshipType.ONE_TO_MANY) {
+                // Return a simple lazy-loading list
+                Class<?> targetType = (Class<?>) ((ParameterizedType) rel.field.getGenericType()).getActualTypeArguments()[0];
+                Repository<?> relRepo = Repository.of(database, targetType);
+
+                Object myId = idField.field.get(instance);
+                rel.field.set(instance, new LazyList<>(() ->
+                        database.select(relRepo.tableName)
+                                .where(rel.mappedBy, "=", myId.toString())
+                                .executeAsync().thenApply(targetRows -> {
+                                    List<Object> list = new ArrayList<>();
+                                    for (QueryResult r : targetRows) {
+                                        try {
+                                            list.add(relRepo.mapRow(r));
+                                        } catch (Exception ignored) {
+                                        }
+                                    }
+                                    return list;
+                                }).join()
+                ));
+            } else if (rel.type == RelationshipType.ONE_TO_ONE) {
+                Repository<?> relRepo = Repository.of(database, rel.field.getType());
+                if (rel.mappedBy == null || rel.mappedBy.isEmpty()) {
+                    // Owning Side
+                    Object relId = row.raw().get(rel.field.getName() + "_id");
+                    if (relId != null) {
+                        rel.field.set(instance, relRepo.findById(relId).orElse(null));
+                    }
+                } else {
+                    // Inverse Side
+                    Object myId = idField.field.get(instance);
+                    rel.field.set(instance, database.select(relRepo.tableName)
+                            .where(rel.mappedBy, "=", myId.toString())
+                            .executeAsync().thenApply(targetRows -> {
+                                if (targetRows.isEmpty()) return null;
+                                try {
+                                    return relRepo.mapRow(targetRows.getFirst());
+                                } catch (Exception e) {
+                                    return null;
+                                }
+                            }).join());
+                }
+            }
+        }
         return instance;
     }
 
+    private enum RelationshipType {MANY_TO_ONE, ONE_TO_MANY, ONE_TO_ONE}
+
     private record FieldMapping(Field field, String columnName) {
+    }
+
+    private record RelationshipMapping(Field field, RelationshipType type, String mappedBy) {
     }
 }

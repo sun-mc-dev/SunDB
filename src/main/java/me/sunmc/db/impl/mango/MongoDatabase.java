@@ -7,7 +7,7 @@ import me.sunmc.db.api.*;
 import me.sunmc.db.api.result.QueryResult;
 import me.sunmc.db.api.result.UpdateResult;
 import me.sunmc.db.config.MongoConfig;
-import me.sunmc.db.util.VirtualExecutor;
+import me.sunmc.db.util.PriorityExecutor;
 import org.bson.Document;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -56,7 +56,7 @@ public final class MongoDatabase implements AsyncDatabase {
         return CompletableFuture.runAsync(() -> {
             client = MongoClients.create(cfg.connectionString());
             db = client.getDatabase(cfg.database());
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Contract(" -> new")
@@ -64,7 +64,7 @@ public final class MongoDatabase implements AsyncDatabase {
     public @NotNull CompletableFuture<Void> disconnectAsync() {
         return CompletableFuture.runAsync(() -> {
             if (client != null) client.close();
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Contract("_, _ -> new")
@@ -77,7 +77,7 @@ public final class MongoDatabase implements AsyncDatabase {
                 results.add(new QueryResult(doc));
             }
             return results;
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Contract("_, _ -> new")
@@ -101,7 +101,7 @@ public final class MongoDatabase implements AsyncDatabase {
                     yield UpdateResult.of(1, result.getInsertedId());
                 }
             };
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Contract("_, _ -> new")
@@ -112,7 +112,7 @@ public final class MongoDatabase implements AsyncDatabase {
             List<Document> docs = paramBatches.stream().map(this::buildFilter).toList();
             col.insertMany(docs);
             return new int[]{docs.size()};
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Contract("_ -> new")
@@ -130,7 +130,7 @@ public final class MongoDatabase implements AsyncDatabase {
                     throw new RuntimeException("Mongo transaction aborted", ex);
                 }
             }
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Override
@@ -162,6 +162,16 @@ public final class MongoDatabase implements AsyncDatabase {
             for (int i = 0; i + 1 < params.length; i += 2) doc.append(params[i].toString(), params[i + 1]);
             var res = db.getCollection(collection).insertOne(doc);
             return UpdateResult.of(1, res.getInsertedId());
+        }
+
+        @Override
+        public Object setSavepoint() {
+            throw new UnsupportedOperationException("Savepoints are not supported in MongoDB transactions");
+        }
+
+        @Override
+        public void rollback(Object savepoint) {
+            throw new UnsupportedOperationException("Savepoints are not supported in MongoDB transactions");
         }
     }
 }

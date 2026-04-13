@@ -4,8 +4,13 @@
 # ==================================================================== #
 
 # Define your remote, shared databases here.
-# Plugins using SunDB can automatically connect to these without
+# plugins using SunDB can automatically connect to these without
 # needing you to copy/paste credentials into every plugin's config.
+
+global:
+  # Any query taking longer than this will be logged and tracked in /sundb top
+  slow-query-threshold-ms: 50
+
 databases:
 
   # ------------------------------------------------------------------ #
@@ -23,6 +28,9 @@ databases:
       maximum-pool-size: 10
       minimum-idle: 2
       connection-timeout: 30000
+    # List of database names to use as read replicas. 
+    # Optional. SELECT queries will be distributed across these.
+    # readers: ["replica_1", "replica_2"]
 
   # ------------------------------------------------------------------ #
   # The "cache" database. Generally used for faster in-memory storage,

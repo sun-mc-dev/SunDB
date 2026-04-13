@@ -19,12 +19,9 @@ import java.util.function.Supplier;
  */
 public final class CircuitBreaker {
 
-    public enum State {CLOSED, OPEN, HALF_OPEN}
-
     private final String dbName;
     private final int failureThreshold;
     private final Duration timeout;
-
     private final AtomicInteger failures = new AtomicInteger(0);
     private volatile State state = State.CLOSED;
     private volatile Instant openedAt = Instant.MIN;
@@ -83,4 +80,6 @@ public final class CircuitBreaker {
     public int failureCount() {
         return failures.get();
     }
+
+    public enum State {CLOSED, OPEN, HALF_OPEN}
 }

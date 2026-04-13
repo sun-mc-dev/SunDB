@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -49,7 +50,20 @@ public final class ConfigLoader {
                 root = yaml.load(reader);
             }
 
-            if (root == null || !root.containsKey("databases")) {
+            if (root == null) {
+                SunDBLogger.warn("Empty config.yml.");
+                return;
+            }
+
+            if (root.containsKey("global")) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> global = (Map<String, Object>) root.get("global");
+                if (global != null && global.containsKey("slow-query-threshold-ms")) {
+                    SunDB.setSlowQueryThresholdMs(getInt(global, "slow-query-threshold-ms", 50));
+                }
+            }
+
+            if (!root.containsKey("databases")) {
                 SunDBLogger.warn("No 'databases' section found in config.yml.");
                 return;
             }
@@ -67,6 +81,21 @@ public final class ConfigLoader {
                     registerDatabase(name, settings);
                 } catch (Exception e) {
                     SunDBLogger.error("Failed to load database '" + name + "' from config: " + e.getMessage());
+                }
+            }
+
+            // Second pass: setup ReadWrite routing for any entry that defined 'readers'
+            for (Map.Entry<String, Map<String, Object>> entry : databases.entrySet()) {
+                String name = entry.getKey();
+                Map<String, Object> settings = entry.getValue();
+
+                if (settings.containsKey("readers")) {
+                    Object val = settings.get("readers");
+                    if (val instanceof List<?> list) {
+                        List<String> readerNames = list.stream().map(Object::toString).toList();
+                        SunDB.getManager().registerReadWrite(name, name, readerNames);
+                        SunDBLogger.info("Configured Read-Write routing for '" + name + "' with replicas: " + readerNames);
+                    }
                 }
             }
 

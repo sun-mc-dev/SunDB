@@ -2,6 +2,7 @@ package me.sunmc.db.api.query;
 
 import me.sunmc.db.api.AsyncDatabase;
 import me.sunmc.db.api.result.UpdateResult;
+import me.sunmc.db.util.SqlSanitizer;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -27,11 +28,11 @@ public final class UpdateQueryBuilder {
 
     public UpdateQueryBuilder(@NotNull AsyncDatabase database, @NotNull String table) {
         this.database = database;
-        this.table = table;
+        this.table = SqlSanitizer.table(table);
     }
 
     public UpdateQueryBuilder set(String column, Object value) {
-        setValues.put(column, value);
+        setValues.put(SqlSanitizer.column(column), value);
         return this;
     }
 

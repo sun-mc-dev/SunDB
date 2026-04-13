@@ -24,12 +24,13 @@ public final class MigrationRunner {
      */
     public static void run(@NotNull AsyncDatabase database,
                            @NotNull String namespace,
-                           @NotNull Map<Integer, String> migrations) {
+                           @NotNull Map<Integer, MigrationBuilder.MigrationStep> migrations) {
 
         database.update("""
                 CREATE TABLE IF NOT EXISTS sundb_migrations (
                     namespace VARCHAR(128) NOT NULL,
                     version INT NOT NULL,
+                    down_sql TEXT,
                     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (namespace, version)
                 )
@@ -44,22 +45,26 @@ public final class MigrationRunner {
             currentVersion = rows.getFirst().getInt("max_ver", 0);
         }
 
-        TreeMap<Integer, String> sorted = new TreeMap<>(migrations);
+        TreeMap<Integer, MigrationBuilder.MigrationStep> sorted = new TreeMap<>(migrations);
         int applied = 0;
 
         for (var entry : sorted.entrySet()) {
             int ver = entry.getKey();
             if (ver <= currentVersion) continue;
 
-            String sql = entry.getValue();
+            String sql = entry.getValue().upSql();
+            String downSql = entry.getValue().downSql();
             SunDBLogger.info("[Migration] " + namespace + " v" + ver + ": " + truncate(sql));
 
             try {
-                database.update(sql);
-                database.update(
-                        "INSERT INTO sundb_migrations (namespace, version) VALUES (?, ?)",
-                        namespace, ver
-                );
+                database.transaction(ctx -> {
+                    ctx.update(sql);
+                    ctx.update(
+                            "INSERT INTO sundb_migrations (namespace, version, down_sql) VALUES (?, ?, ?)",
+                            namespace, ver, downSql
+                    );
+                    return null;
+                });
                 applied++;
             } catch (Exception e) {
                 SunDBLogger.error("[Migration] Failed at " + namespace + " v" + ver + ": " + e.getMessage());

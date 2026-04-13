@@ -2,7 +2,7 @@
 
 [![Release](https://jitpack.io/v/sun-mc-dev/SunDB.svg)](https://jitpack.io/#sun-mc-dev/SunDB)
 
-📚 **[Read the Full Documentation](DOCUMENTATION.md)** | 🛠 **[View 8 Real-World Plugin Examples](EXAMPLE_PLUGIN.md)**
+📚 **[Read the Full Documentation](DOCUMENTATION.md)** | 🛠 **[View 9 Real-World Plugin Examples](EXAMPLE_PLUGIN.md)**
 
 A lightweight, multi-platform asynchronous database library for modern Minecraft servers.
 
@@ -24,7 +24,10 @@ Designed specifically for Java 21+, SunDB utilizes native Virtual Threads (`Exec
 * **ORM Entity Mapping:** Map your Java objects directly to database tables via `@Table` and `@Column` annotations.
 * **Caching & Optimization**: In-memory caching decorators built with Caffeine.
 * **Advanced Metrics**: Monitor your live HikariCP connection pools in-game using the native `/sundb status` command.
-* **Fluent Query Builder:** Type-safe SELECT, INSERT, UPDATE, DELETE without raw SQL.
+* **Query Profiler**: Track slow queries in real-time and view them with `/sundb top`.
+* **Read-Replica Routing**: Automatically distribute SELECT queries across reader pools via a simple config.
+* **Database Exporter**: Seamlessly migrate schema and data between different database types using `/sundb migrate-db`.
+* **Fluent Query Builder**: Type-safe SELECT, INSERT, UPDATE, DELETE without raw SQL.
 
 ## Supported Databases
 
@@ -85,10 +88,12 @@ When you start the server for the first time with SunDB installed, it will gener
 
 SunDB registers a `/sundb` command on both Paper/Folia and Velocity. Requires the `sundb.admin` permission.
 
-| Command         | Description                                                                                                                                          |
-|-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `/sundb status` | Live connection pool metrics for every registered database.                                                                                          |
-| `/sundb reload` | Closes and re-opens all databases defined in `config.yml` without a server restart. Useful after editing credentials or adding a new database entry. |
+| Command             | Description                                                                                                                                          |
+|---------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/sundb status`     | Live connection pool metrics for every registered database.                                                                                          |
+| `/sundb top`        | Shows the most recent slow queries that exceeded your configured millisecond threshold.                                                              |
+| `/sundb migrate-db` | Migrates schema and data between two registered databases (e.g. from a local SQLite to a remote MySQL).                                              |
+| `/sundb reload`     | Closes and re-opens all databases defined in `config.yml` without a server restart. Useful after editing credentials or adding a new database entry. |
 
 > Databases registered programmatically by individual plugins (e.g. private SQLite files) are not affected by `/sundb reload` — they manage their own lifecycle.
 

@@ -2,6 +2,7 @@ package me.sunmc.db.api.query;
 
 import me.sunmc.db.api.AsyncDatabase;
 import me.sunmc.db.api.result.UpdateResult;
+import me.sunmc.db.util.SqlSanitizer;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -29,11 +30,11 @@ public final class InsertBuilder {
 
     public InsertBuilder(@NotNull AsyncDatabase database, @NotNull String table) {
         this.database = database;
-        this.table = table;
+        this.table = SqlSanitizer.table(table);
     }
 
     public InsertBuilder set(String column, Object value) {
-        values.put(column, value);
+        values.put(SqlSanitizer.column(column), value);
         return this;
     }
 
@@ -43,12 +44,12 @@ public final class InsertBuilder {
      * or {@code ON CONFLICT ... DO UPDATE SET column = ?} (PostgreSQL).
      */
     public InsertBuilder onDuplicateKeyUpdate(String column, Object value) {
-        onDuplicateUpdates.put(column, value);
+        onDuplicateUpdates.put(SqlSanitizer.column(column), value);
         return this;
     }
 
     public InsertBuilder conflictTarget(String column) {
-        this.conflictTargetCol = column;
+        this.conflictTargetCol = SqlSanitizer.column(column);
         return this;
     }
 

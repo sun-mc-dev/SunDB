@@ -23,7 +23,7 @@ public final class MigrationBuilder {
 
     private final AsyncDatabase database;
     private final String namespace;
-    private final Map<Integer, String> migrations = new LinkedHashMap<>();
+    private final Map<Integer, MigrationStep> migrations = new LinkedHashMap<>();
 
     public MigrationBuilder(@NotNull AsyncDatabase database, @NotNull String namespace) {
         this.database = database;
@@ -31,14 +31,25 @@ public final class MigrationBuilder {
     }
 
     /**
-     * Register a migration at the given version.
+     * Register an up-only migration at the given version.
      * Versions must be unique positive integers. They are executed in order.
      */
     public MigrationBuilder version(int version, String sql) {
+        return version(version, sql, null);
+    }
+
+    /**
+     * Register a reversible migration at the given version.
+     *
+     * @param version The version ID.
+     * @param upSql   The SQL to execute when migrating UP.
+     * @param downSql The SQL to execute when reverting DOWN.
+     */
+    public MigrationBuilder version(int version, String upSql, String downSql) {
         if (version < 1) throw new IllegalArgumentException("Version must be >= 1");
         if (migrations.containsKey(version))
             throw new IllegalArgumentException("Duplicate migration version: " + version);
-        migrations.put(version, sql);
+        migrations.put(version, new MigrationStep(upSql, downSql));
         return this;
     }
 
@@ -47,5 +58,8 @@ public final class MigrationBuilder {
      */
     public void execute() {
         MigrationRunner.run(database, namespace, migrations);
+    }
+
+    public record MigrationStep(String upSql, String downSql) {
     }
 }

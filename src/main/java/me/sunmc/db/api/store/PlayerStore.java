@@ -1,6 +1,6 @@
 package me.sunmc.db.api.store;
 
-import me.sunmc.db.util.VirtualExecutor;
+import me.sunmc.db.util.PriorityExecutor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,7 +57,7 @@ public interface PlayerStore {
                                              @NotNull String key,
                                              @NotNull Object value) {
         return CompletableFuture.runAsync(() -> set(player, key, value),
-                VirtualExecutor.get());
+                PriorityExecutor.get());
     }
 
     /**
@@ -76,7 +76,7 @@ public interface PlayerStore {
                                                         @NotNull String key,
                                                         @NotNull Class<T> type) {
         return CompletableFuture.supplyAsync(() -> get(player, key, type),
-                VirtualExecutor.get());
+                PriorityExecutor.get());
     }
 
     /**
@@ -88,7 +88,7 @@ public interface PlayerStore {
                                                        @Nullable T def) {
         return CompletableFuture.supplyAsync(
                 () -> get(player, key, type).orElse(def),
-                VirtualExecutor.get());
+                PriorityExecutor.get());
     }
 
     /**
@@ -96,7 +96,7 @@ public interface PlayerStore {
      */
     default CompletableFuture<Map<String, String>> getAllAsync(@NotNull UUID player) {
         return CompletableFuture.supplyAsync(() -> getAll(player),
-                VirtualExecutor.get());
+                PriorityExecutor.get());
     }
 
     /**
@@ -105,7 +105,7 @@ public interface PlayerStore {
     default CompletableFuture<Boolean> hasAsync(@NotNull UUID player,
                                                 @NotNull String key) {
         return CompletableFuture.supplyAsync(() -> has(player, key),
-                VirtualExecutor.get());
+                PriorityExecutor.get());
     }
 
     /**
@@ -114,7 +114,7 @@ public interface PlayerStore {
     default CompletableFuture<Void> removeAsync(@NotNull UUID player,
                                                 @NotNull String key) {
         return CompletableFuture.runAsync(() -> remove(player, key),
-                VirtualExecutor.get());
+                PriorityExecutor.get());
     }
 
     /**
@@ -122,6 +122,6 @@ public interface PlayerStore {
      */
     default CompletableFuture<Void> deleteAsync(@NotNull UUID player) {
         return CompletableFuture.runAsync(() -> delete(player),
-                VirtualExecutor.get());
+                PriorityExecutor.get());
     }
 }

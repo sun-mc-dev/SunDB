@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.UnmodifiableView;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -88,5 +89,18 @@ public final class DatabaseManager {
             }
         });
         registry.clear();
+    }
+
+    /**
+     * Re-registers an existing database name as a ReadWrite cluster.
+     * The writer and readers must already be registered.
+     */
+    public void registerReadWrite(String name, String writerName, @NotNull List<String> readerNames) {
+        AsyncDatabase writer = get(writerName);
+        AsyncDatabase[] readers = readerNames.stream()
+                .map(this::get)
+                .toArray(AsyncDatabase[]::new);
+
+        registry.put(name, writer.withReadReplicas(readers));
     }
 }

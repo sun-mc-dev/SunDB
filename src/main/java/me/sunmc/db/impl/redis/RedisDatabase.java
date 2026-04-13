@@ -14,7 +14,7 @@ import me.sunmc.db.api.pubsub.PubSubListener;
 import me.sunmc.db.api.result.QueryResult;
 import me.sunmc.db.api.result.UpdateResult;
 import me.sunmc.db.config.RedisConfig;
-import me.sunmc.db.util.VirtualExecutor;
+import me.sunmc.db.util.PriorityExecutor;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.jetbrains.annotations.Contract;
@@ -97,7 +97,7 @@ public final class RedisDatabase implements AsyncDatabase {
 
             pool = ConnectionPoolSupport.createGenericObjectPool(
                     () -> lettuceClient.connect(), poolCfg);
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Contract(" -> new")
@@ -109,7 +109,7 @@ public final class RedisDatabase implements AsyncDatabase {
             }
             if (pool != null) pool.close();
             if (lettuceClient != null) lettuceClient.shutdown();
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Contract("_, _ -> new")
@@ -132,7 +132,7 @@ public final class RedisDatabase implements AsyncDatabase {
             } catch (Exception ex) {
                 throw new RuntimeException("Redis query failed", ex);
             }
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Contract("_, _ -> new")
@@ -165,7 +165,7 @@ public final class RedisDatabase implements AsyncDatabase {
             } catch (Exception ex) {
                 throw new RuntimeException("Redis update failed", ex);
             }
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Contract("_, _ -> new")
@@ -184,7 +184,7 @@ public final class RedisDatabase implements AsyncDatabase {
             } catch (Exception ex) {
                 throw new RuntimeException("Redis batch failed", ex);
             }
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Contract("_ -> new")
@@ -207,7 +207,7 @@ public final class RedisDatabase implements AsyncDatabase {
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Override
@@ -227,7 +227,7 @@ public final class RedisDatabase implements AsyncDatabase {
                 if (ch.equals(channel)) {
                     CompletableFuture.runAsync(
                             () -> listener.onMessage(ch, message),
-                            VirtualExecutor.get()
+                            PriorityExecutor.get()
                     );
                 }
             }
@@ -245,7 +245,7 @@ public final class RedisDatabase implements AsyncDatabase {
             public void message(String pattern1, String channel, String message) {
                 CompletableFuture.runAsync(
                         () -> listener.onMessage(channel, message),
-                        VirtualExecutor.get()
+                        PriorityExecutor.get()
                 );
             }
         });
@@ -290,6 +290,16 @@ public final class RedisDatabase implements AsyncDatabase {
         public @NotNull UpdateResult update(String key, Object @NotNull ... params) {
             if (params.length >= 1) cmd.set(key, params[0].toString());
             return UpdateResult.of(1);
+        }
+
+        @Override
+        public Object setSavepoint() {
+            throw new UnsupportedOperationException("Savepoints are not supported in Redis transactions");
+        }
+
+        @Override
+        public void rollback(Object savepoint) {
+            throw new UnsupportedOperationException("Savepoints are not supported in Redis transactions");
         }
     }
 }

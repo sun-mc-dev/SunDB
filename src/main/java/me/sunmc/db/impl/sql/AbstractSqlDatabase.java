@@ -3,6 +3,7 @@ package me.sunmc.db.impl.sql;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zaxxer.hikari.HikariPoolMXBean;
+import me.sunmc.db.SunDB;
 import me.sunmc.db.api.AsyncDatabase;
 import me.sunmc.db.api.DatabaseMetrics;
 import me.sunmc.db.api.TransactionCallback;
@@ -10,7 +11,7 @@ import me.sunmc.db.api.TransactionContext;
 import me.sunmc.db.api.result.QueryResult;
 import me.sunmc.db.api.result.UpdateResult;
 import me.sunmc.db.config.PoolConfig;
-import me.sunmc.db.util.VirtualExecutor;
+import me.sunmc.db.util.PriorityExecutor;
 import org.jetbrains.annotations.NotNull;
 
 import java.sql.*;
@@ -98,6 +99,7 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
                 cfg.setMaxLifetime(pc.maxLifetimeMs());
                 cfg.setKeepaliveTime(pc.keepAliveTimeMs());
                 cfg.setPoolName("SunDB-" + name);
+                cfg.setRegisterMbeans(true);
 
                 // Performance tweaks
                 cfg.addDataSourceProperty("cachePrepStmts", "true");
@@ -107,7 +109,7 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
 
                 dataSource = new HikariDataSource(cfg);
             }
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Override
@@ -116,11 +118,12 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
             if (dataSource != null && !dataSource.isClosed()) {
                 dataSource.close();
             }
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Override
     public CompletableFuture<List<QueryResult>> queryAsync(String sql, Object... params) {
+        long start = System.nanoTime();
         return CompletableFuture.supplyAsync(() -> {
             try (Connection conn = dataSource.getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -128,16 +131,22 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
                 for (int i = 0; i < params.length; i++) ps.setObject(i + 1, params[i]);
 
                 try (ResultSet rs = ps.executeQuery()) {
-                    return mapResultSet(rs);
+                    List<QueryResult> res = mapResultSet(rs);
+                    long ms = (System.nanoTime() - start) / 1_000_000L;
+                    if (ms > me.sunmc.db.SunDB.getSlowQueryThresholdMs()) {
+                        SunDB.trackSlowQuery(sql, ms);
+                    }
+                    return res;
                 }
             } catch (SQLException ex) {
                 throw new RuntimeException("Query failed: " + sql, ex);
             }
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Override
     public CompletableFuture<UpdateResult> updateAsync(String sql, Object... params) {
+        long start = System.nanoTime();
         return CompletableFuture.supplyAsync(() -> {
             try (Connection conn = dataSource.getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -150,11 +159,16 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     if (keys.next()) genKey = keys.getObject(1);
                 }
+
+                long ms = (System.nanoTime() - start) / 1_000_000L;
+                if (ms > SunDB.getSlowQueryThresholdMs()) {
+                    SunDB.trackSlowQuery(sql, ms);
+                }
                 return UpdateResult.of(affected, genKey);
             } catch (SQLException ex) {
                 throw new RuntimeException("Update failed: " + sql, ex);
             }
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Override
@@ -183,7 +197,7 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
             } catch (SQLException ex) {
                 throw new RuntimeException("Batch connection error: " + sql, ex);
             }
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Override
@@ -204,7 +218,7 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
             } catch (SQLException ex) {
                 throw new RuntimeException("Transaction error", ex);
             }
-        }, VirtualExecutor.get());
+        }, PriorityExecutor.get());
     }
 
     @Override
@@ -236,6 +250,21 @@ abstract class AbstractSqlDatabase implements AsyncDatabase {
                     if (keys.next()) key = keys.getObject(1);
                 }
                 return UpdateResult.of(affected, key);
+            }
+        }
+
+        @Override
+        public Object setSavepoint() throws Exception {
+            return conn.setSavepoint();
+        }
+
+        @Override
+        public void rollback(Object savepoint) throws Exception {
+            if (savepoint instanceof Savepoint sp) {
+                conn.rollback(sp);
+            } else {
+                throw new IllegalArgumentException("Expected java.sql.Savepoint, got " +
+                        (savepoint != null ? savepoint.getClass().getName() : "null"));
             }
         }
     }
