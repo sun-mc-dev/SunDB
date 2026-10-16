@@ -122,7 +122,7 @@
         <dependency>
             <groupId>io.dropwizard.metrics5</groupId>
             <artifactId>metrics-jmx</artifactId>
-            <version>5.0.6</version>
+            <version>5.0.8</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>
